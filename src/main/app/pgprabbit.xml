@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:amqp="http://www.mulesoft.org/schema/mule/amqp" xmlns:encryption="http://www.mulesoft.org/schema/mule/encryption" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/amqp http://www.mulesoft.org/schema/mule/amqp/current/mule-amqp.xsd
+http://www.mulesoft.org/schema/mule/encryption http://www.mulesoft.org/schema/mule/encryption/current/mule-encryption.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <encryption:config name="Encryption" defaultEncrypter="PGP_ENCRYPTER" doc:name="Encryption">
+        <encryption:pgp-encrypter-config publicKeyRingFileName="C:\Users\sadik.ali\Desktop\Certificate\public\37E073E80C271D16F7B82EF60950BB5ADFBCD643.gpg" secretKeyRingFileName="C:\Users\sadik.ali\Desktop\Certificate\private\secretkey.gpg" secretAliasId="-6798763364753580092" secretPassphrase="123456789" principal="Sadik Ali &lt;sadik.ali@mahindracomviva.com&gt;"/>
+    </encryption:config>
+    <amqp:connector name="AMQP_0_9_Connector" validateConnections="true" doc:name="AMQP-0-9 Connector"/>
+    <flow name="pgprabbitFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/rabbitmqpgp" allowedMethods="POST" doc:name="HTTP"/>
+        <object-to-byte-array-transformer doc:name="Object to Byte Array"/>
+        <encryption:encrypt config-ref="Encryption" using="PGP_ENCRYPTER" doc:name="Encryption"/>
+        <amqp:outbound-endpoint queueName="xmlencry" exchangeType="topic" exchangeDurable="true" responseTimeout="10000" exchange-pattern="request-response" connector-ref="AMQP_0_9_Connector" doc:name="AMQP-0-9"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <set-payload value="This is message sent to VM : #[payload]" doc:name="Set Payload"/>
+    </flow>
+    <flow name="pgprabbitFlow1">
+        <amqp:inbound-endpoint queueName="xmlencry" exchangeType="topic" exchangeDurable="true" responseTimeout="10000" exchange-pattern="request-response" connector-ref="AMQP_0_9_Connector" doc:name="AMQP-0-9"/>
+        <encryption:decrypt config-ref="Encryption" using="PGP_ENCRYPTER" doc:name="Encryption"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <logger message="This is final message recieved : #[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>
